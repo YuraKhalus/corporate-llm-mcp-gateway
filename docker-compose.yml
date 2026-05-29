@@ -74,6 +74,21 @@ services:
     networks:
       - crm-network
 
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui-client
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./docker-volumes/open-webui:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434}
+      - OPENAI_API_BASE_URL=http://vllm:8000/v1
+      - WEBUI_SECRET_KEY=${JWT_SECRET}
+    networks:
+      - crm-network
+
 networks:
   crm-network:
     driver: bridge
