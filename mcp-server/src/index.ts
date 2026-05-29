@@ -1,5 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
 import {
     CallToolRequestSchema,
     ListToolsRequestSchema,
@@ -69,16 +70,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     throw new Error(`Інструмент не знайдено або не підтримується: ${request.params.name}`);
 });
 
-// 4. Запуск сервера через стандартний потік вводу/виводу (Stdio)
-async function runServer() {
-    const transport = new StdioServerTransport();
+// 4. Запуск сервера через HTTP/SSE
+const app = express();
+const port = process.env.PORT || 3001;
+let transport: SSEServerTransport;
+
+app.get("/sse", async (req, res) => {
+    transport = new SSEServerTransport("/messages", res);
     await server.connect(transport);
+});
 
+app.post("/messages", async (req, res) => {
+    if (transport) {
+        await transport.handlePostMessage(req, res);
+    } else {
+        res.status(500).send("SSE transport not initialized");
+    }
+});
 
-    console.error("TypeScript MCP Server успішно запущено на базі stdio транспорту.");
-}
-
-runServer().catch((error) => {
-    console.error("Критична помилка ініціалізації MCP Сервера:", error);
-    process.exit(1);
+app.listen(port, () => {
+    console.log(`Corporate MCP Server is running on SSE transport at http://localhost:${port}`);
 });

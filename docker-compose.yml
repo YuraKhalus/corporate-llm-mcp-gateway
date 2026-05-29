@@ -89,6 +89,19 @@ services:
     networks:
       - crm-network
 
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: crm-mcp-server
+    restart: always
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    networks:
+      - crm-network
+
 networks:
   crm-network:
     driver: bridge
