@@ -5,7 +5,8 @@ node_modules/
 
 docker-volumes/postgres_data/
 docker-volumes/redis_data/
-
+docker-volumes/vllm_cache/
+docker-volumes/
 
 .env
 *.local
