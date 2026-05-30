@@ -99,6 +99,23 @@ services:
       - "3001:3001"
     env_file:
       - .env
+    environment:
+      - PORT=3001
+    networks:
+      - crm-network
+
+  mcpo:
+    image: ghcr.io/open-webui/mcpo:main
+    container_name: crm-mcpo-proxy
+    restart: always
+    ports:
+      - "8005:8000"
+    command: >
+      mcpo --host 0.0.0.0 --port 8000 --api-key "${JWT_SECRET}" --server-type "sse" -- http://mcp-server:3001/sse
+    env_file:
+      - .env
+    depends_on:
+      - mcp-server
     networks:
       - crm-network
 
