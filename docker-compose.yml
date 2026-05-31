@@ -84,7 +84,7 @@ services:
       - ./docker-volumes/open-webui:/app/backend/data
     environment:
       - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434}
-      - OPENAI_API_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_BASE_URL=http://ai-gateway:3005/v1
       - WEBUI_SECRET_KEY=${JWT_SECRET}
     networks:
       - crm-network
@@ -116,6 +116,20 @@ services:
       - .env
     depends_on:
       - mcp-server
+    networks:
+      - crm-network
+
+  ai-gateway:
+    build:
+      context: ./ai-gateway
+      dockerfile: Dockerfile
+    container_name: crm-ai-gateway
+    restart: always
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434/v1}
     networks:
       - crm-network
 

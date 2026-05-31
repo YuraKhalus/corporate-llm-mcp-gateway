@@ -64,4 +64,10 @@ class Filter:
         """
         Метод outlet перехоплює відповідь LLM перед тим, як вона повернеться користувачу.
         """
+        messages = body.get("messages", [])
+        if messages:
+            last_message = messages[-1].get("content", "")
+            if "__PROMPT_INJECTION_DETECTED__" in last_message:
+                raise Exception("Попередження безпеки: Шлюз штучного інтелекту виявив розширене впровадження запиту. Запит заблоковано.")
+        
         return body
