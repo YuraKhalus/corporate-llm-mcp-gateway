@@ -37,7 +37,7 @@ const api = axios.create({
  * Якщо співробітник - це директор, він побачить ID всіх підлеглих.
  * Якщо це консультант, він побачить лише свій ID.
  */
-async function getAllowedConsultantIds(userEmail: string): Promise<string[]> {
+async function getUserContext(userEmail: string): Promise<{ allowedIds: string[], currentUser: any, allEmployees: any[] }> {
     const res = await api.get('/employees?limit=1000');
     const employees = res.data?.data?.employees || [];
 
@@ -59,7 +59,7 @@ async function getAllowedConsultantIds(userEmail: string): Promise<string[]> {
     }
 
     addSubordinates(currentUser.id);
-    return Array.from(allowedIds);
+    return { allowedIds: Array.from(allowedIds), currentUser, allEmployees: employees };
 }
 
 // -----------------------------------------------------------------------------
@@ -110,6 +110,60 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     },
                     required: ["user_email", "client_name", "title", "content"],
                 },
+            },
+            {
+                name: "get_team_structure",
+                description: "Показати ієрархію підлеглих для заданого менеджера.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        user_email: { type: "string" }
+                    },
+                    required: ["user_email"],
+                },
+            },
+            {
+                name: "get_team_analytics",
+                description: "Зібрати статистику кількості клієнтів по відділу (включаючи міста).",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        user_email: { type: "string" }
+                    },
+                    required: ["user_email"],
+                },
+            },
+            {
+                name: "create_client",
+                description: "Створити нову картку клієнта та закріпити її за поточним користувачем.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        user_email: { type: "string" },
+                        firstName: { type: "string" },
+                        lastName: { type: "string" },
+                        city: { type: "string" },
+                        email: { type: "string", description: "Опціонально" }
+                    },
+                    required: ["user_email", "firstName", "lastName", "city"],
+                },
+            },
+            {
+                name: "onboard_new_client",
+                description: "Створити клієнта і одразу додати стартову нотатку.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        user_email: { type: "string" },
+                        firstName: { type: "string" },
+                        lastName: { type: "string" },
+                        city: { type: "string" },
+                        email: { type: "string" },
+                        noteTitle: { type: "string" },
+                        noteContent: { type: "string" }
+                    },
+                    required: ["user_email", "firstName", "lastName", "city", "noteTitle", "noteContent"],
+                },
             }
         ],
     };
@@ -127,8 +181,75 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const userEmail = args.user_email;
 
     try {
-        // Отримуємо дозволені ID для поточного юзера
-        const allowedIds = await getAllowedConsultantIds(userEmail);
+        // Отримуємо дозволені ID для поточного юзера та сам об'єкт користувача
+        const { allowedIds, currentUser, allEmployees } = await getUserContext(userEmail);
+
+        if (name === "get_team_structure") {
+            const team = allEmployees
+                .filter((e: any) => allowedIds.includes(e.id))
+                .map((e: any) => ({
+                    id: e.id,
+                    name: e.name,
+                    jobTitle: e.jobTitle,
+                    email: e.email?.primaryEmail,
+                    isMe: e.id === currentUser.id
+                }));
+            return { content: [{ type: "text", text: JSON.stringify(team, null, 2) }] };
+        }
+
+        if (name === "get_team_analytics") {
+            const peopleRes = await api.get('/people?limit=1000');
+            const allPeople = peopleRes.data?.data?.people || [];
+
+            const analytics = allowedIds.map(consultantId => {
+                const consultant = allEmployees.find((e: any) => e.id === consultantId);
+                const clients = allPeople.filter((p: any) => p.consultantId === consultantId);
+                
+                const byCity: Record<string, number> = {};
+                clients.forEach((c: any) => {
+                    const city = c.city || 'Невідомо';
+                    byCity[city] = (byCity[city] || 0) + 1;
+                });
+
+                return {
+                    consultant: consultant?.name,
+                    totalClients: clients.length,
+                    clientsByCity: byCity
+                };
+            });
+
+            return { content: [{ type: "text", text: JSON.stringify(analytics, null, 2) }] };
+        }
+
+        if (name === "create_client" || name === "onboard_new_client") {
+            const { firstName, lastName, city, email, noteTitle, noteContent } = args as any;
+
+            const newPersonRes = await api.post('/people', {
+                name: { firstName, lastName },
+                city: city,
+                emails: email ? { primaryEmail: email, additionalEmails: [] } : undefined,
+                consultantId: currentUser.id
+            });
+            const personId = newPersonRes.data.data.createPerson.id;
+
+            let responseText = `Клієнта ${firstName} ${lastName} успішно створено. ID: ${personId}`;
+
+            if (name === "onboard_new_client" && noteTitle && noteContent) {
+                const noteRes = await api.post('/notes', {
+                    title: noteTitle,
+                    bodyV2: { markdown: noteContent }
+                });
+                const noteId = noteRes.data.data.createNote.id;
+
+                await api.post('/noteTargets', {
+                    noteId: noteId,
+                    targetPersonId: personId
+                });
+                responseText += `\nСтартову нотатку "${noteTitle}" успішно додано.`;
+            }
+
+            return { content: [{ type: "text", text: responseText }] };
+        }
 
         if (name === "get_my_clients") {
             const peopleRes = await api.get('/people?limit=1000');
