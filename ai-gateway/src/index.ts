@@ -100,12 +100,50 @@ app.post('/v1/chat/completions', async (req, res) => {
 
 
         if (body.stream) {
+            let isFirstToken = true;
+            let ttft_ms = 0;
+            let usage: any = null;
+            let toolCallsCount = 0;
+
+            res.setHeader('Content-Type', (ollamaResponse.headers['content-type'] as string) || 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            
+            ollamaResponse.data.on('data', (chunk: any) => {
+                if (isFirstToken) {
+                    ttft_ms = Date.now() - startTime;
+                    isFirstToken = false;
+                }
+                const chunkStr = chunk.toString('utf-8');
+                if (chunkStr.includes('"usage":')) {
+                    const match = chunkStr.match(/"usage"\s*:\s*({[^}]+})/);
+                    if (match) {
+                        try { usage = JSON.parse(match[1]); } catch (e) {}
+                    }
+                }
+                if (chunkStr.includes('"tool_calls"')) {
+                     const funcMatches = chunkStr.match(/"name"\s*:/g);
+                     if (funcMatches) toolCallsCount += funcMatches.length;
+                }
+            });
+
             ollamaResponse.data.pipe(res);
             ollamaResponse.data.on('end', () => {
+                const total_duration = Date.now() - startTime;
+                let tpot_ms = 0;
+                if (usage && usage.completion_tokens > 0) {
+                    tpot_ms = (total_duration - ttft_ms) / usage.completion_tokens;
+                }
                 logRequest({
                     event_type: "STREAM_COMPLETED",
                     model: body.model,
-                    duration_ms: Date.now() - startTime
+                    duration_ms: total_duration,
+                    ttft_ms: ttft_ms,
+                    tpot_ms: tpot_ms,
+                    prompt_tokens: usage?.prompt_tokens,
+                    completion_tokens: usage?.completion_tokens,
+                    reasoning_tokens: usage?.reasoning_tokens || usage?.completion_tokens_details?.reasoning_tokens,
+                    tool_calls_count: toolCallsCount
                 });
             });
             return;

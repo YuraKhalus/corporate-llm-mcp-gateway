@@ -28,9 +28,6 @@ const api = axios.create({
     }
 });
 
-// -----------------------------------------------------------------------------
-// Допоміжні функції для RLS (Row-Level Security)
-// -----------------------------------------------------------------------------
 
 /**
  * Отримує всі ID співробітників, які є підлеглими для заданого email.
@@ -62,9 +59,6 @@ async function getUserContext(userEmail: string): Promise<{ allowedIds: string[]
     return { allowedIds: Array.from(allowedIds), currentUser, allEmployees: employees };
 }
 
-// -----------------------------------------------------------------------------
-// Ініціалізація MCP Сервера
-// -----------------------------------------------------------------------------
 const server = new Server(
     { name: "corporate-crm-mcp-server", version: "1.0.0" },
     { capabilities: { tools: {} } }
