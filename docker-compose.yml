@@ -86,6 +86,11 @@ services:
       - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434}
       - OPENAI_API_BASE_URL=http://ai-gateway:3005/v1
       - WEBUI_SECRET_KEY=${JWT_SECRET}
+      - ENABLE_OAUTH_SIGNUP=true
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-open-webui-client}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET:-dummy-secret}
+      - OPENID_PROVIDER_URL=http://host.docker.internal:3006
+      - DEFAULT_USER_ROLE=user
     networks:
       - crm-network
 
@@ -130,6 +135,23 @@ services:
     environment:
       - PORT=3005
       - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434/v1}
+    networks:
+      - crm-network
+
+  oidc-broker:
+    build:
+      context: ./oidc-broker
+      dockerfile: Dockerfile
+    container_name: crm-oidc-broker
+    restart: always
+    ports:
+      - "3006:3006"
+    env_file:
+      - .env
+    environment:
+      - OIDC_PORT=3006
+      - OPENID_PROVIDER_URL=http://host.docker.internal:3006
+      - TWENTY_BASE_URL=http://crm-server:3000
     networks:
       - crm-network
 
