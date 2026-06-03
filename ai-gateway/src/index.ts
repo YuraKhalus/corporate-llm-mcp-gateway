@@ -67,6 +67,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     const isSafe = checkSecurity(body.messages);
     if (!isSafe) {
         logRequest({
+            trace_id: body.session_id,
             event_type: "SECURITY_BLOCK",
             model: body.model,
             duration_ms: Date.now() - startTime
@@ -88,6 +89,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     // 2. Проксування запиту до Ollama
     try {
         logRequest({
+            trace_id: body.session_id,
             event_type: "REQUEST_FORWARDED",
             model: body.model,
             messages_count: body.messages?.length || 0,
@@ -135,6 +137,7 @@ app.post('/v1/chat/completions', async (req, res) => {
                     tpot_ms = (total_duration - ttft_ms) / usage.completion_tokens;
                 }
                 logRequest({
+                    trace_id: body.session_id,
                     event_type: "STREAM_COMPLETED",
                     model: body.model,
                     duration_ms: total_duration,
@@ -151,6 +154,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
         const duration = Date.now() - startTime;
         logRequest({
+            trace_id: body.session_id,
             event_type: "RESPONSE_RECEIVED",
             model: body.model,
             duration_ms: duration,

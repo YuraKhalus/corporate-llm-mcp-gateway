@@ -1,0 +1,114 @@
+[
+    {
+        "type": "function",
+        "function": {
+            "name": "get_my_clients",
+            "description": "Отримати список всіх клієнтів, до яких у поточного користувача є доступ (власні клієнти + клієнти підлеглих).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string", "description": "Email поточного користувача (обов'язково)" }
+                },
+                "required": ["user_email"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_client_details",
+            "description": "Отримати деталі клієнта та історію зустрічей (нотатки) за його ім'ям.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string", "description": "Email поточного користувача" },
+                    "client_name": { "type": "string", "description": "Ім'я та прізвище клієнта (напр. 'Олена Шевченко')" }
+                },
+                "required": ["user_email", "client_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_client_note",
+            "description": "Додати нову нотатку або запис про зустріч до клієнта.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string" },
+                    "client_name": { "type": "string" },
+                    "title": { "type": "string", "description": "Заголовок або мета зустрічі" },
+                    "content": { "type": "string", "description": "Текст нотатки (можна Markdown)" }
+                },
+                "required": ["user_email", "client_name", "title", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_team_structure",
+            "description": "Показати ієрархію підлеглих для заданого менеджера.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string" }
+                },
+                "required": ["user_email"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_team_analytics",
+            "description": "Зібрати статистику кількості клієнтів по відділу (включаючи міста).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string" }
+                },
+                "required": ["user_email"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_client",
+            "description": "Створити нову картку клієнта та закріпити її за поточним користувачем.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string" },
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "city": { "type": "string" },
+                    "email": { "type": "string", "description": "Опціонально" }
+                },
+                "required": ["user_email", "firstName", "lastName", "city"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "onboard_new_client",
+            "description": "Створити клієнта і одразу додати стартову нотатку.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_email": { "type": "string" },
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "city": { "type": "string" },
+                    "email": { "type": "string" },
+                    "noteTitle": { "type": "string" },
+                    "noteContent": { "type": "string" }
+                },
+                "required": ["user_email", "firstName", "lastName", "city", "noteTitle", "noteContent"]
+            }
+        }
+    }
+]
