@@ -41,11 +41,40 @@ function checkSecurity(messages: any[]): boolean {
 
 
     const dangerousPatterns = [
+        // SQL Injection 
         /drop table/i,
-        /you are now a/i,
-        /forget your instructions/i,
-        /ignore previous/i,
-        /override system/i
+        /delete from/i,
+        /truncate table/i,
+        /exec(\s|\+)+(s|x)p\w+/i, // SQL Server exec xp_cmdshell тощо
+        /union(\s|\+)all(\s|\+)select/i,
+
+        // Prompt Injection 
+        /you are now (a|an)/i,
+        /forget (all )?(your )?(previous )?instructions/i,
+        /ignore (all )?(your )?(previous )?(instructions|rules|prompts)/i,
+        /override system/i,
+        /bypass (the )?(rules|system)/i,
+        /disregard previous/i,
+        /print (your )?(system )?(prompt|instructions)/i,
+        /what (were|are) your (system )?(instructions|prompts)/i,
+        /jailbreak/i,
+
+        // Prompt Injection 
+        /забудь (всі |усі |свої |попередні )?інструкції/i,
+        /забудь (все |усе)/i,
+        /ігноруй (всі |усі |попередні )?(правила|інструкції|вказівки)/i,
+        /ти тепер/i,
+        /твоє (нове )?завдання/i,
+        /покажи (свій |системний )?промпт/i,
+        /які (в тебе|були твої) (попередні )?інструкції/i,
+        /обійти (всі |усі )?правила/i,
+        /скасуй (всі |усі |попередні )?обмеження/i,
+        /виведи свої (правила|інструкції)/i,
+        /відключи (безпеку|захист|правила)/i,
+
+        //  SQL Injection / Destructive Actions 
+        /видалити (таблицю|базу|всіх клієнтів|дані)/i,
+        /очистити (таблицю|базу)/i
     ];
 
     for (const pattern of dangerousPatterns) {
