@@ -132,6 +132,8 @@ services:
     restart: always
     ports:
       - "3005:3005"
+    volumes:
+      - ./ai-gateway/logs:/app/logs
     environment:
       - PORT=3005
       - OLLAMA_BASE_URL=${AI_INFERENCE_URL:-http://host.docker.internal:11434/v1}
