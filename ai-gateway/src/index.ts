@@ -129,6 +129,11 @@ app.post('/v1/chat/completions', async (req, res) => {
 
 
         if (body.stream) {
+            res.set({
+                'Content-Type': ollamaResponse.headers['content-type'] || 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            });
             ollamaResponse.data.pipe(res);
             ollamaResponse.data.on('end', () => {
                 logRequest({

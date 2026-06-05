@@ -350,7 +350,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         throw new Error(`Невідомий інструмент: ${name}`);
     } catch (e: any) {
-        throw new Error(`Помилка CRM API: ${e.response?.data?.messages || e.message}`);
+        return {
+            content: [{ type: "text", text: `Помилка CRM API: ${e.response?.data?.messages || e.message}` }],
+            isError: true
+        };
     }
 });
 
