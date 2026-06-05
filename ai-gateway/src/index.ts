@@ -142,6 +142,30 @@ app.post('/v1/chat/completions', async (req, res) => {
         }
         body.model = actualModelName; // Підміняємо в тілі запиту
 
+        // Примусові корпоративні параметри генерації
+        const globalTemp = parseFloat(process.env.AI_TEMPERATURE || "0.2");
+        const globalTopP = parseFloat(process.env.AI_TOP_P || "0.9");
+        const globalFreqPenalty = parseFloat(process.env.AI_FREQUENCY_PENALTY || "0.5");
+        const globalMaxTokens = parseInt(process.env.AI_MAX_TOKENS || "2048");
+
+        body.temperature = globalTemp;
+        body.top_p = globalTopP;
+        body.frequency_penalty = globalFreqPenalty;
+        body.max_tokens = globalMaxTokens;
+        
+        // Корпоративний системний промпт
+        let corporatePrompt = process.env.CORPORATE_SYSTEM_PROMPT;
+        if (corporatePrompt) {
+            corporatePrompt = corporatePrompt.replace(/\\n/g, '\n'); // Підтримка \n з .env
+            if (Array.isArray(body.messages) && body.messages.length > 0) {
+                if (body.messages[0].role === 'system') {
+                    body.messages[0].content = corporatePrompt + '\n\n' + body.messages[0].content;
+                } else {
+                    body.messages.unshift({ role: 'system', content: corporatePrompt });
+                }
+            }
+        }
+
         const ollamaResponse = await axios.post(`${targetUrl}/chat/completions`, body, {
             responseType: body.stream ? 'stream' : 'json'
         });
