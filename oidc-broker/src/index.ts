@@ -31,7 +31,7 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
 });
 
-// Функція для конвертації PEM в JWK (дуже спрощена)
+// Функція для конвертації PEM в JWK 
 function pemToJwk(pem: string) {
     const pubKeyObj = crypto.createPublicKey(pem);
     const jwk = pubKeyObj.export({ format: 'jwk' }) as any;
@@ -81,15 +81,14 @@ app.get('/oidc/jwks', (req, res) => {
     res.json({ keys: [pemToJwk(publicKey)] });
 });
 
-// 2. Authorize Endpoint (Показує власну форму логіну)
+// 2. Authorize Endpoint 
 app.get('/oidc/authorize', (req, res) => {
     const { redirect_uri, state, client_id, nonce } = req.query;
-    
+
     if (!redirect_uri) {
         return res.status(400).send('Missing redirect_uri');
     }
 
-    // Рендеримо красиву сторінку логіну
     const html = `
     <!DOCTYPE html>
     <html lang="uk">
@@ -176,7 +175,7 @@ app.post('/oidc/login', async (req, res) => {
                 loginToken { token }
             }
         }`;
-        
+
         const crmResponse = await axios.post(`${TWENTY_BASE_URL}/metadata`, {
             operationName: "GetLoginTokenFromCredentials",
             variables: { email, password, origin: "http://localhost:3000" },
@@ -214,7 +213,7 @@ app.post('/oidc/login', async (req, res) => {
 // 4. Token Endpoint (Open WebUI обмінює code на ID Token)
 app.post('/oidc/token', async (req, res) => {
     const { code, redirect_uri } = req.body;
-    
+
     const session = authCodes.get(code);
     if (!session || session.expiresAt < Date.now() || session.redirect_uri !== redirect_uri) {
         return res.status(400).json({ error: 'invalid_grant' });
@@ -224,7 +223,7 @@ app.post('/oidc/token', async (req, res) => {
     authCodes.delete(code);
 
     const email = session.email;
-    
+
     // Генеруємо ID Token (JWT) для Open WebUI (за допомогою RSA)
     const payload: any = {
         iss: BROKER_URL,
@@ -241,7 +240,7 @@ app.post('/oidc/token', async (req, res) => {
     }
 
     const idToken = jwt.sign(payload, privateKey, { algorithm: 'RS256', keyid: 'broker-key-1' });
-    
+
     res.json({
         access_token: "dummy-access-token-not-needed",
         token_type: 'Bearer',
@@ -256,7 +255,7 @@ app.get('/oidc/userinfo', (req, res) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
-    
+
     try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, publicKey) as any;
