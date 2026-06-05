@@ -15,6 +15,12 @@ if (!OLLAMA_BASE_URL.endsWith('/v1')) {
     OLLAMA_BASE_URL = `${OLLAMA_BASE_URL}/v1`;
 }
 
+const remoteUrlsRaw = process.env.REMOTE_LLM_URLS || '';
+const REMOTE_LLM_URLS = remoteUrlsRaw.split(',').map(u => u.trim()).filter(u => u.length > 0).map(u => u.endsWith('/v1') ? u : `${u}/v1`);
+
+// Глобальна мапа для маршрутизації: ім'я моделі -> базовий URL
+const modelRoutingMap: Record<string, string> = {};
+
 const logsDir = path.join(__dirname, '..', 'logs');
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
@@ -125,7 +131,18 @@ app.post('/v1/chat/completions', async (req, res) => {
             tools_count: body.tools?.length || 0
         });
 
-        const ollamaResponse = await axios.post(`${OLLAMA_BASE_URL}/chat/completions`, body, {
+        let targetUrl = OLLAMA_BASE_URL;
+        let actualModelName = body.model;
+
+        // Визначаємо, на який сервер слати запит
+        if (modelRoutingMap[body.model]) {
+            targetUrl = modelRoutingMap[body.model];
+            // Видаляємо префікс для віддаленого сервера, бо він знає модель під оригінальним ім'ям
+            actualModelName = actualModelName.replace(/^\[Remote \d+\]\s*/, '');
+        }
+        body.model = actualModelName; // Підміняємо в тілі запиту
+
+        const ollamaResponse = await axios.post(`${targetUrl}/chat/completions`, body, {
             responseType: body.stream ? 'stream' : 'json'
         });
 
@@ -208,8 +225,60 @@ app.post('/v1/chat/completions', async (req, res) => {
 
 app.get('/v1/models', async (req, res) => {
     try {
-        const ollamaResponse = await axios.get(`${OLLAMA_BASE_URL}/models`);
-        res.json(ollamaResponse.data);
+        console.log("[Gateway] Fetching models...");
+        console.log("[Gateway] Local URL:", OLLAMA_BASE_URL);
+        console.log("[Gateway] Remote URLs:", REMOTE_LLM_URLS);
+
+        const localPromise = axios.get(`${OLLAMA_BASE_URL}/models`).then(res => {
+            console.log("[Gateway] Local fetch success, found", res.data?.data?.length, "models");
+            return res.data;
+        }).catch(e => {
+            console.error("[Gateway Error] Local fetch failed:", e.message);
+            return { data: [] };
+        });
+        
+        const remotePromises = REMOTE_LLM_URLS.map(url => 
+            axios.get(`${url}/models`).then(res => {
+                console.log("[Gateway] Remote fetch success for", url, ", found", res.data?.data?.length, "models");
+                return { url, data: res.data };
+            }).catch(e => {
+                console.error("[Gateway Error] Remote fetch failed for", url, ":", e.message);
+                return { url, data: { data: [] } };
+            })
+        );
+
+        const [localRes, ...remoteResponses] = await Promise.all([localPromise, ...remotePromises]);
+        
+        const allModels = [];
+
+        // Локальні моделі
+        if (localRes.data && Array.isArray(localRes.data)) {
+            for (const model of localRes.data) {
+                modelRoutingMap[model.id] = OLLAMA_BASE_URL;
+                allModels.push(model);
+            }
+        }
+
+        // Віддалені моделі
+        for (let i = 0; i < remoteResponses.length; i++) {
+            const remote = remoteResponses[i];
+            const remoteIndex = i + 1;
+            const remoteData = remote.data.data;
+            if (remoteData && Array.isArray(remoteData)) {
+                for (const model of remoteData) {
+                    // Змінюємо ім'я, щоб Open WebUI і користувач бачили, що це віддалена модель
+                    const newId = `[Remote ${remoteIndex}] ${model.id}`;
+                    model.id = newId;
+                    if (model.name) {
+                        model.name = `[Remote ${remoteIndex}] ${model.name}`;
+                    }
+                    modelRoutingMap[newId] = remote.url;
+                    allModels.push(model);
+                }
+            }
+        }
+
+        res.json({ object: "list", data: allModels });
     } catch (error: any) {
         console.error("[Gateway Error] Failed to fetch models:", error.message);
         res.status(500).json({ error: { message: "Gateway Error: Failed to fetch models." } });
